@@ -43,8 +43,28 @@ impl RedisClient {
         self.s.flush().unwrap();
         let mut res = [0; 512];
         let n = self.s.read(&mut res).unwrap();
-        return String::from_utf8_lossy(&res[0..n]).to_string();
+        let ret = parse_result(String::from_utf8_lossy(&res[0..n]).to_string().as_str()).unwrap();
+        return ret.to_string();
     }
+}
+
+fn parse_result(res: &str) -> Option<String> {
+    let arr: Vec<&str> = res.split("\r\n").collect();
+    return match &arr[0][0..1] {
+        "$" => Some(arr[1].to_string()),
+        "+" => Some(arr[1].to_string()),
+        "-" => Some(arr[0].to_string()),
+        "*" => {
+            let len = arr[0][1..].parse::<usize>().unwrap();
+            let mut v: Vec<String> = Vec::new();
+            for i in 0..len {
+                v.push(arr[i + 1].to_string());
+            }
+            let res = v.join(",");
+            Some(res)
+        }
+        _ => None,
+    };
 }
 
 struct Command {
